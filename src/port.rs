@@ -1,4 +1,5 @@
 use crate::error::Error;
+use crate::Action;
 
 use std::process::Command;
 use std::path::PathBuf;
@@ -7,45 +8,56 @@ use std::fs;
 
 
 pub struct Port {
-    path: PathBuf,
+    dbuild: PathBuf,
 }
 
 impl Port {
-    pub fn find(port: String) -> Result<Port, Error> {
+    pub fn find(port: &str) -> Result<Port, Error> {
         let ports = env::var("PORTD_PORTS")
             .map(|ports| PathBuf::from(ports))
             .unwrap_or_else(|_| PathBuf::from("/usr/ports"));
 
-        for entry in fs::read_dir(ports)? {
-            let path = entry?.path().join(&port);
+        let dbuild = ports.join(format!("{}.dbuild", port));
 
-            if path.exists() {
-                println!("info: {} found at: {}", port, path.to_string_lossy());
-
-                return Ok(Port {
-                    path,
-                });
-            }
+        if dbuild.exists() {
+            return Ok(Port {
+                dbuild,
+            });
         }
 
-        Err(Error::NoSuchPort(port))
+        Err(Error::NoSuchPort(port.to_string()))
     }
 
-    pub fn fetch(self) -> Result<(), Error> {
-        println!("info: fetching: {}", self.path.to_string_lossy());
+    pub fn dbuild(self, action: &Action) -> Result<(), Error> {
+        let mut command = Command::new(&self.dbuild);
 
-        let status = Command::new(self.path.join("build.sh"))
-            .current_dir(&self.path)
-            .status()?;
+        if let Some(parent) = self.dbuild.parent() {
+            command.current_dir(&parent);
+        }
 
-        if status.success() {
-            println!("info: build succeeded: {}", self.path.to_string_lossy());
+        command.arg(action.args());
+
+        if command.status()?.success() {
+            println!("info: script success: {}", self.dbuild.to_string_lossy());
         } else {
-            return Err(Error::BuildFailed(self.path));
+            return Err(Error::ScriptFailed(self.dbuild));
         }
 
         Ok(())
     }
+}
+
+#[inline]
+pub fn ports(ports: Vec<String>, action: Action) -> Result<(), Error> {
+    for port in ports {
+        println!("info: port: {}", port);
+
+        let port = Port::find(&port)?;
+
+        port.dbuild(&action)?;
+    }
+
+    Ok(())
 }
 
 
