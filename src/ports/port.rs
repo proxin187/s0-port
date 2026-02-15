@@ -1,5 +1,6 @@
 use crate::error::Error;
 
+use std::process::Command;
 use std::path::PathBuf;
 use std::fs;
 
@@ -7,9 +8,15 @@ use semver::{Version, VersionReq};
 
 
 pub struct Port {
-    name: String,
+    pub name: String,
     version: VersionReq,
     path: PathBuf,
+}
+
+impl std::fmt::Display for Port {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+        f.write_fmt(format_args!("{}: {}@{}", self.path.to_string_lossy(), self.name, self.version))
+    }
 }
 
 impl Port {
@@ -30,7 +37,7 @@ impl Port {
     }
 
     pub fn dependencies(&self) -> Result<Vec<String>, Error> {
-        let content = fs::read_to_string(&self.path)?;
+        let content = fs::read_to_string(self.path.join("DEPEND"))?;
 
         Ok(content.lines().map(|line| line.to_string()).collect::<Vec<String>>())
     }
@@ -43,22 +50,21 @@ impl Port {
             .ok_or_else(|| Error::ResolveFailed(self.name.clone(), self.version.clone()))
     }
 
-    /*
-    pub fn command(&self, command: &str) -> Result<Vec<String>, Error> {
-        let output = Command::new(&self.path)
-            .env("PORTS", &self.path)
-            .arg(command)
-            .output()?;
+    pub fn command(&self, version: &Version, command: &str) -> Result<(), Error> {
+        let code = format!(". {}/versions/{} && {}", self.path.to_string_lossy(), version, command);
 
-        if output.status.success() {
-            let stdout = String::from_utf8_lossy(&output.stdout);
+        println!("info: /bin/sh -c '{}'", code);
 
-            Ok(stdout.split(' ').map(|line| line.to_string()).collect::<Vec<String>>())
+        let status = Command::new("/bin/sh")
+            .args(["-c", &code])
+            .status()?;
+
+        if status.success() {
+            Ok(())
         } else {
             Err(Error::InvalidPort(self.path.clone()))
         }
     }
-    */
 }
 
 

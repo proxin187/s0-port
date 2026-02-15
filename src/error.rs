@@ -8,6 +8,7 @@ pub enum Error {
     MissingDependencies(Vec<String>),
     NoSuchPort(String),
     ResolveFailed(String, semver::VersionReq),
+    NotInstalled(String),
 }
 
 impl From<semver::Error> for Error {
@@ -31,6 +32,7 @@ impl std::fmt::Display for Error {
             Error::MissingDependencies(ports) => f.write_fmt(format_args!("missing dependencies: {}", ports.join(" "))),
             Error::NoSuchPort(port) => f.write_fmt(format_args!("no such port: {}", port)),
             Error::ResolveFailed(name, version) => f.write_fmt(format_args!("unable to resolve version requirement: {}@{}", name, version)),
+            Error::NotInstalled(name) => f.write_fmt(format_args!("unable to remove: '{}' isn't installed", name)),
         }
     }
 }

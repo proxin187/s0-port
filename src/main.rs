@@ -1,14 +1,7 @@
 mod error;
 mod ports;
 
-use error::Error;
-use ports::Ports;
-
 use clap::{Parser, ValueEnum};
-
-
-// doas port install world/rxfetch@1.0
-// doas port remove world/rxfetch@1.0
 
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -21,14 +14,17 @@ pub enum Action {
 
 #[derive(Parser)]
 pub struct Args {
+    /// Action to perform on specifiers
     action: Action,
-    ports: Vec<String>,
+
+    /// Specifier of one or more ports
+    specifiers: Vec<String>,
 }
 
 fn main() {
     let args = Args::parse();
 
-    if let Err(err) = ports::install(args.ports) {
+    if let Err(err) = ports::handle(args.action, args.specifiers) {
         eprintln!("error: {}", err);
     }
 }
