@@ -1,5 +1,6 @@
 use crate::error::Error;
 
+use std::io::{self, Write};
 use std::process::Command;
 use std::path::PathBuf;
 use std::fs;
@@ -7,6 +8,7 @@ use std::fs;
 use semver::{Version, VersionReq};
 
 
+#[derive(PartialEq)]
 pub struct Port {
     pub name: String,
     version: VersionReq,
@@ -15,7 +17,7 @@ pub struct Port {
 
 impl std::fmt::Display for Port {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-        f.write_fmt(format_args!("{}: {}@{}", self.path.to_string_lossy(), self.name, self.version))
+        f.write_fmt(format_args!("{}@{}", self.name, self.version))
     }
 }
 
@@ -42,7 +44,7 @@ impl Port {
         Ok(content.lines().map(|line| line.to_string()).collect::<Vec<String>>())
     }
 
-    pub fn resolve(&self) -> Result<Version, Error> {
+    pub fn resolve_version(&self) -> Result<Version, Error> {
         fs::read_dir(self.path.join("versions"))?
             .filter_map(|result| result.ok().and_then(|entry| Version::parse(entry.file_name().to_string_lossy().as_ref()).ok()))
             .filter(|version| self.version.matches(version))
@@ -51,17 +53,16 @@ impl Port {
     }
 
     pub fn command(&self, version: &Version, command: &str) -> Result<(), Error> {
-        let code = format!(". {}/versions/{} && {}", self.path.to_string_lossy(), version, command);
+        let output = Command::new("/bin/sh")
+            .arg("-c")
+            .arg(format!(". {}/versions/{} && {}", self.path.to_string_lossy(), version, command))
+            .output()?;
 
-        println!("info: /bin/sh -c '{}'", code);
-
-        let status = Command::new("/bin/sh")
-            .args(["-c", &code])
-            .status()?;
-
-        if status.success() {
+        if output.status.success() {
             Ok(())
         } else {
+            io::stderr().write_all(&[output.stdout, output.stderr].concat())?;
+
             Err(Error::InvalidPort(self.path.clone()))
         }
     }

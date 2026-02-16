@@ -38,8 +38,10 @@ impl Store {
         Ok(file.write_all(version.to_string().as_bytes())?)
     }
 
-    pub fn has(&self, name: &str) -> bool {
-        self.path.join(name).exists()
+    pub fn has(&self, name: &str, version: &Version) -> bool {
+        fs::read_to_string(self.path.join(name))
+            .map(|content| version.to_string() == content)
+            .unwrap_or(false)
     }
 }
 

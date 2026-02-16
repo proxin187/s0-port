@@ -1,6 +1,8 @@
+mod dependencies;
 mod store;
 mod port;
 
+use dependencies::Dependencies;
 use store::Store;
 use port::Port;
 
@@ -9,6 +11,8 @@ use crate::Action;
 
 use std::path::PathBuf;
 use std::env;
+
+use semver::Version;
 
 
 pub struct Ports {
@@ -39,26 +43,18 @@ impl Ports {
         }
     }
 
-    fn check(&self, port: &Port) -> Result<(), Error> {
-        let missing = port.dependencies()?
-            .into_iter()
-            .filter(|dependency| !self.store.has(dependency))
-            .collect::<Vec<String>>();
+    pub fn install(&self, port: &Port, version: Version, rebuild: bool) -> Result<(), Error> {
+        if !self.store.has(&port.name, &version) || rebuild {
+            println!("info: building {} {}", port.name, version);
 
-        match missing.as_slice() {
-            [] => Ok(()),
-            [..] => Err(Error::MissingDependencies(missing)),
+            port.command(&version, "build")?;
+
+            self.store.create(&port.name, version)?;
+        } else {
+            println!("info: already installed, skipping {} {}", port.name, version);
         }
-    }
 
-    pub fn install(&self, port: &Port) -> Result<(), Error> {
-        let version = port.resolve()?;
-
-        self.check(&port)?;
-
-        port.command(&version, "build")?;
-
-        self.store.create(&port.name, version)
+        Ok(())
     }
 
     pub fn remove(&self, port: &Port) -> Result<(), Error> {
@@ -68,27 +64,37 @@ impl Ports {
     }
 }
 
-pub fn handle(action: Action, specifiers: Vec<String>) -> Result<(), Error> {
+pub fn install(specifiers: Vec<String>, rebuild: bool) -> Result<(), Error> {
+    let ports = Ports::new();
+    let mut dependencies = Dependencies::new();
+
+    dependencies.resolve(&ports, &specifiers)?;
+
+    for (port, version) in dependencies.ports {
+        ports.install(&port, version, rebuild)?;
+    }
+
+    Ok(())
+}
+
+pub fn remove(specifiers: Vec<String>) -> Result<(), Error> {
     let ports = Ports::new();
 
     for specifier in specifiers {
         let port = ports.find(&specifier)?;
 
-        match action {
-            Action::Install => {
-                ports.install(&port)?;
-
-                println!("info: installed: {}", port);
-            },
-            Action::Remove => {
-                ports.remove(&port)?;
-
-                println!("info: removed: {}", port);
-            },
-        }
+        ports.remove(&port)?;
     }
 
     Ok(())
+}
+
+#[inline]
+pub fn handle(action: Action, specifiers: Vec<String>, rebuild: bool) -> Result<(), Error> {
+    match action {
+        Action::Install => install(specifiers, rebuild),
+        Action::Remove => remove(specifiers),
+    }
 }
 
 

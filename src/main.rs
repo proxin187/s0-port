@@ -8,23 +8,27 @@ use clap::{Parser, ValueEnum};
 pub enum Action {
     /// Install one or more ports
     Install,
-    /// Remove one or more ports from the system
+    /// Remove one or more ports
     Remove,
 }
 
 #[derive(Parser)]
 pub struct Args {
-    /// Action to perform on specifiers
+    /// The action you want
     action: Action,
 
-    /// Specifier of one or more ports
+    /// One or more ports
     specifiers: Vec<String>,
+
+    /// Rebuild ports, including those already installed
+    #[clap(long, short, action)]
+    rebuild: bool,
 }
 
 fn main() {
     let args = Args::parse();
 
-    if let Err(err) = ports::handle(args.action, args.specifiers) {
+    if let Err(err) = ports::handle(args.action, args.specifiers, args.rebuild) {
         eprintln!("error: {}", err);
     }
 }
