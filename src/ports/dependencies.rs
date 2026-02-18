@@ -2,11 +2,9 @@ use crate::ports::port::Port;
 use crate::ports::Ports;
 use crate::error::Error;
 
-use semver::Version;
-
 
 pub struct Dependencies {
-    pub ports: Vec<(Port, Version)>,
+    pub ports: Vec<Port>,
 }
 
 impl Dependencies {
@@ -21,10 +19,8 @@ impl Dependencies {
             let port = ports.find(specifier)?;
             let dependencies = port.dependencies()?;
 
-            if !self.ports.iter().any(|(p, _)| *p == port) {
-                let version = port.resolve_version()?;
-
-                self.ports.push((port, version));
+            if !self.ports.iter().any(|p| *p == port) {
+                self.ports.push(port);
 
                 self.resolve(ports, &dependencies)?;
             }

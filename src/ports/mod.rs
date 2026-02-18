@@ -12,8 +12,6 @@ use crate::Action;
 use std::path::PathBuf;
 use std::env;
 
-use semver::Version;
-
 
 pub struct Ports {
     store: Store,
@@ -37,30 +35,34 @@ impl Ports {
         let path = self.path.join(name);
 
         if path.exists() {
-            Port::new(&specifier, path)
+            Port::parse(&specifier, path)
         } else {
             Err(Error::NoSuchPort(specifier.to_string()))
         }
     }
 
-    pub fn install(&self, port: &Port, version: Version, rebuild: bool) -> Result<(), Error> {
-        if !self.store.has(&port.name, &version) || rebuild {
-            println!("info: building {} {}", port.name, version);
+    pub fn install(&self, port: &Port, rebuild: bool) -> Result<(), Error> {
+        if !self.store.has(&port) || rebuild {
+            println!("info: build {}", port);
 
-            port.command(&version, "build")?;
+            port.command("build")?;
 
-            self.store.create(&port.name, version)?;
+            self.store.create(&port)?;
         } else {
-            println!("info: already installed, skipping {} {}", port.name, version);
+            println!("info: already installed, skip {}", port);
         }
 
         Ok(())
     }
 
-    pub fn remove(&self, port: &Port) -> Result<(), Error> {
+    pub fn remove(&self, port: Port) -> Result<(), Error> {
+        println!("info: remove {}", port.name);
+
         let version = self.store.remove(&port.name)?;
 
-        port.command(&version, "clean")
+        port.with_version(version).command("clean")?;
+
+        Ok(())
     }
 }
 
@@ -70,8 +72,8 @@ pub fn install(specifiers: Vec<String>, rebuild: bool) -> Result<(), Error> {
 
     dependencies.resolve(&ports, &specifiers)?;
 
-    for (port, version) in dependencies.ports {
-        ports.install(&port, version, rebuild)?;
+    for port in dependencies.ports {
+        ports.install(&port, rebuild)?;
     }
 
     Ok(())
@@ -83,7 +85,7 @@ pub fn remove(specifiers: Vec<String>) -> Result<(), Error> {
     for specifier in specifiers {
         let port = ports.find(&specifier)?;
 
-        ports.remove(&port)?;
+        ports.remove(port)?;
     }
 
     Ok(())

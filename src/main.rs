@@ -25,6 +25,10 @@ pub struct Args {
     rebuild: bool,
 }
 
+// TODO: we want per version metadata, this means that dependencies, conflicts, and so on are
+// specified inside the build script. This also means that we will no longer have a versions/
+// directory, instead the different versions will just be inside the root of the ports directory
+
 fn main() {
     let args = Args::parse();
 

@@ -1,3 +1,4 @@
+use crate::ports::port::Port;
 use crate::error::Error;
 
 use std::fs::{self, File};
@@ -32,15 +33,15 @@ impl Store {
         Ok(Version::parse(&content)?)
     }
 
-    pub fn create(&self, name: &str, version: Version) -> Result<(), Error> {
-        let mut file = File::create(self.path.join(name))?;
+    pub fn create(&self, port: &Port) -> Result<(), Error> {
+        let mut file = File::create(self.path.join(&port.name))?;
 
-        Ok(file.write_all(version.to_string().as_bytes())?)
+        Ok(file.write_all(port.version.to_string().as_bytes())?)
     }
 
-    pub fn has(&self, name: &str, version: &Version) -> bool {
-        fs::read_to_string(self.path.join(name))
-            .map(|content| version.to_string() == content)
+    pub fn has(&self, port: &Port) -> bool {
+        fs::read_to_string(self.path.join(&port.name))
+            .map(|content| port.version.to_string() == content)
             .unwrap_or(false)
     }
 }
