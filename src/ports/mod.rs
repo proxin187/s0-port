@@ -72,7 +72,7 @@ pub fn install(specifiers: Vec<String>, rebuild: bool) -> Result<(), Error> {
 
     dependencies.resolve(&ports, &specifiers)?;
 
-    for port in dependencies.ports {
+    for port in dependencies.ports.iter().rev() {
         ports.install(&port, rebuild)?;
     }
 
