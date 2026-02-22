@@ -1,5 +1,9 @@
 # s0-port
 
+> [!WARNING]
+> This project has been archived due to inactivity and redirection of the s0 project.
+> Implementing a package manager is a great learning excercise, but un-maintainable long term due to the fact that i cannot maintain a software repository.
+
 A minimal, ports-like, source-based package manager.
 
 ## Features
