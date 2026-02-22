@@ -1,0 +1,33 @@
+#!/bin/sh
+
+set -e
+
+if [ "$(id -u)" -ne 0 ]; then
+    echo "port-install: must be root" >&2
+    exit 1
+fi
+
+case "$1" in
+    -h|--help)
+        cat << EOF
+Usage: port-install [OPTIONS] PORT...
+
+Install one or more ports.
+
+Arguments:
+  PORT...                Port name(s) to install, optionally with version
+                         (e.g., term/tmux, term/tmux@3.4)
+
+Options:
+  -h, --help             Show this help message
+  -f, --force            Force reinstall if already installed
+EOF
+        exit
+        ;;
+    *)
+        target/release/s0-port install $(target/release/s0-port resolve "$@" --from repository)
+        exit
+        ;;
+esac
+
+

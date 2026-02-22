@@ -24,13 +24,15 @@ impl Store {
         }
     }
 
-    pub fn remove(&self, name: &str) -> Result<Version, Error> {
-        let content = fs::read_to_string(self.path.join(name))
-            .map_err(|_| Error::NotInstalled(name.to_string()))?;
-
-        fs::remove_file(self.path.join(name))?;
+    pub fn resolve(&self, package: &str) -> Result<Version, Error> {
+        let content = fs::read_to_string(self.path.join(package))
+            .map_err(|_| Error::NotInstalled(package.to_string()))?;
 
         Ok(Version::parse(&content)?)
+    }
+
+    pub fn remove(&self, package: &str) -> Result<(), Error> {
+        Ok(fs::remove_file(self.path.join(package))?)
     }
 
     pub fn create(&self, port: &Port) -> Result<(), Error> {

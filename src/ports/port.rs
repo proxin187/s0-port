@@ -22,6 +22,14 @@ impl std::fmt::Display for Port {
 }
 
 impl Port {
+    pub fn new(name: String, version: Version, path: PathBuf) -> Port {
+        Port {
+            name,
+            version,
+            path,
+        }
+    }
+
     pub fn parse(specifier: &str, path: PathBuf) -> Result<Port, Error> {
         if let Some((name, version)) = specifier.split_once('@') {
             Port::resolve(name.to_string(), VersionReq::parse(version)?, path)

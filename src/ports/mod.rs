@@ -1,48 +1,49 @@
-mod dependencies;
+mod resolver;
+mod repository;
 mod store;
 mod port;
 
-use dependencies::Dependencies;
+use resolver::Resolver;
 use store::Store;
 use port::Port;
 
 use crate::error::Error;
-use crate::Action;
+use crate::ResolveFrom;
 
 use std::path::PathBuf;
 use std::env;
 
+use semver::Version;
 
-pub struct Ports {
-    store: Store,
+
+pub struct Repository {
     path: PathBuf,
 }
 
-impl Ports {
-    pub fn new() -> Ports {
+impl Repository {
+    pub fn new() -> Repository {
         let path = env::var("PORTS")
             .map(|ports| PathBuf::from(ports))
             .unwrap_or_else(|_| PathBuf::from("/usr/s0-ports"));
 
-        Ports {
-            store: Store::new(),
+        Repository {
             path,
         }
     }
 
-    pub fn find(&self, specifier: &str) -> Result<Port, Error> {
-        let name = specifier.split('@').next().ok_or_else(|| Error::NoSuchPort(specifier.to_string()))?;
-        let path = self.path.join(name);
+    pub fn find(&self, name: String, version: Version) -> Result<Port, Error> {
+        let path = self.path.join(&name).join(version.to_string());
 
         if path.exists() {
-            Port::parse(&specifier, path)
+            Ok(Port::new(name, version, path))
         } else {
-            Err(Error::NoSuchPort(specifier.to_string()))
+            Err(Error::NoSuchPort(name))
         }
     }
 
-    pub fn install(&self, port: &Port, rebuild: bool) -> Result<(), Error> {
-        if !self.store.has(&port) || rebuild {
+    /*
+    pub fn install(&self, port: &Port, force: bool) -> Result<(), Error> {
+        if !self.store.has(&port) || force {
             println!("info: build {}", port);
 
             port.command("build")?;
@@ -64,39 +65,57 @@ impl Ports {
 
         Ok(())
     }
+    */
 }
 
-pub fn install(specifiers: Vec<String>, rebuild: bool) -> Result<(), Error> {
-    let ports = Ports::new();
+// build should build a list of packages, and insert what they provide into the store
+pub fn build(ports: Vec<String>, force: bool) -> Result<(), Error> {
+    let repository = Repository::new();
+    let store = Store::new();
     let mut dependencies = Dependencies::new();
 
-    dependencies.resolve(&ports, &specifiers)?;
+    dependencies.resolve(&repository, &ports)?;
 
     for port in dependencies.ports.iter().rev() {
-        ports.install(&port, rebuild)?;
+        repository.install(&port, force)?;
     }
 
     Ok(())
 }
 
-pub fn remove(specifiers: Vec<String>) -> Result<(), Error> {
-    let ports = Ports::new();
+// clean should clean a list of packages, and remvoe what they provide from the store
+pub fn clean(ports: Vec<String>) -> Result<(), Error> {
+    let repository = Repository::new();
 
-    for specifier in specifiers {
-        let port = ports.find(&specifier)?;
+    for port in ports {
+        let port = repository.find(&port)?;
 
-        ports.remove(port)?;
+        repository.remove(port)?;
     }
 
     Ok(())
 }
 
-#[inline]
-pub fn handle(action: Action, specifiers: Vec<String>, rebuild: bool) -> Result<(), Error> {
-    match action {
-        Action::Install => install(specifiers, rebuild),
-        Action::Remove => remove(specifiers),
+// resolve should resolve a list of package requirements into a list of filesystems paths to ports
+// it must also resolve its dependencies, in an order where the dependencies always come before the dependent
+pub fn resolve(packages: Vec<String>, from: ResolveFrom) -> Result<(), Error> {
+    let repository = Repository::new();
+
+    match from {
+        ResolveFrom::Store => {
+            // when resolving from the store we will get the version and then use that to find the
+            // relevant port in the repository
+            let store = Store::new();
+
+            for package in packages {
+                let version = store.resolve(&package)?;
+            }
+        },
+        ResolveFrom::Repository => {
+        },
     }
+
+    Ok(())
 }
 
 

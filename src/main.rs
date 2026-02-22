@@ -1,35 +1,75 @@
 mod error;
 mod ports;
 
-use clap::{Parser, ValueEnum};
+use std::process::ExitCode;
+
+use clap::{Parser, Subcommand, ValueEnum};
 
 
-#[derive(Clone, Copy, ValueEnum)]
-pub enum Action {
-    /// Install one or more ports
-    Install,
-    /// Remove one or more ports
-    Remove,
+// TODO: lets make it so that install must take a package and its exact version, then we can have a
+// separate action called resolve which will resolve one or more ports
+//
+// TODO: we should also explain the difference between a port and a package, a port is the specific
+// shell script, and a package is a generalized term for any port that provides that package
+//
+// TODO: the ports should be version agnostic, this is so that we dont have to make a new port for
+// every new version
+
+#[derive(ValueEnum, Clone, Copy)]
+pub enum ResolveFrom {
+    Repository,
+    Store,
 }
 
+#[derive(Subcommand)]
+pub enum Command {
+    /// Build port(s)
+    Build {
+        /// Port(s) to build
+        ports: Vec<String>,
+        /// Force reinstall if already installed
+        #[clap(long, short, action)]
+        force: bool,
+    },
+    /// Clean ports(s)
+    Clean {
+        /// Ports(s) to clean
+        ports: Vec<String>,
+    },
+    /// Resolve package(s) from repository or store
+    Resolve {
+        /// Package(s) to resolve
+        packages: Vec<String>,
+        /// Resolve from repository or store
+        #[clap(long, short, action)]
+        from: ResolveFrom,
+    },
+}
+
+/// s0-port is not intended for direct usage, rather it provides core functionality which can be
+/// used by shell scripts to create a proper ports system to your liking
 #[derive(Parser)]
 pub struct Args {
-    /// The action you want
-    action: Action,
-
-    /// One or more ports
-    specifiers: Vec<String>,
-
-    /// Rebuild ports, including those already installed
-    #[clap(long, short, action)]
-    rebuild: bool,
+    #[clap(subcommand)]
+    command: Command,
 }
 
-fn main() {
+fn main() -> ExitCode {
     let args = Args::parse();
 
-    if let Err(err) = ports::handle(args.action, args.specifiers, args.rebuild) {
-        eprintln!("error: {}", err);
+    let result = match args.command {
+        Command::Build { ports, force } => ports::build(ports, force),
+        Command::Clean { ports } => ports::clean(ports),
+        Command::Resolve { packages, from } => ports::resolve(packages, from),
+    };
+
+    match result {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(err) => {
+            eprintln!("error: {}", err);
+
+            ExitCode::FAILURE
+        },
     }
 }
 
